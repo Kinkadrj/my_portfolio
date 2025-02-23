@@ -1,6 +1,6 @@
 # my_portfolio
 
-## Jupyter Notebook
+## Data Monkey Pandas Data Analyzation
 [View my Jupyter Notebook](https://github.com/kinkadrj/My_Portfolio/blob/main/Script1%20-%20Data_Manipulation.ipynb)
 
 ## my editing of the Survey Monkey Data
