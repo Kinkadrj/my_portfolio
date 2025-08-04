@@ -1,0 +1,212 @@
+---
+title: "Final Individual Project Review"
+output: html_document
+---
+#so in this project I was responsible for putting myself in the shoes of the Adidas CEO. I just recieved 100 pages of NIKE patent data and I am to ask myself, "How can I use this data to progress my company to battle with NIKE's innovations"? I've commented along the way so you understand my thought processes for what I code and why.
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tm)
+library(topicmodels)
+library(ggplot2)
+library(zoo)
+library(stringr)
+library(tidytext)
+#Here I am installing the necessary packages to run the needed code for my project
+```
+
+
+```{r}
+df <- read.csv("textmining_nike.csv", stringsAsFactors = T)
+# Simply assigning my csv as df
+```
+
+```{r}
+#avg citation per patent per year
+avg_citations <- aggregate(df$data.patents.patent_num_combined_citations,
+                           by = list(Year = df$data.patents.patent_year),
+                           FUN = mean, na.rm = TRUE)
+colnames(avg_citations)[2] <- "avg_citations"
+print(avg_citations)
+#This information tells us as the CTO of Adidas that they focus on the knowledge storing and probably invest a lot of money and labor to expand their knowledge base.
+```
+```{r}
+avg_foreign_citations <- aggregate(df$data.patents.patent_num_foreign_citations,
+                                   by = list(Year = df$data.patents.patent_year),
+                                   FUN = mean, na.rm = TRUE)
+
+colnames(avg_foreign_citations) [2] <- "avg_foreign_citations"
+print(avg_citations)
+```
+```{r}
+### Numerical Variables
+hist(df$data.patents.patent_processing_time,
+     xlab = "Processing Time", main = "Histogram of Patent Processing Time")
+#This histogram provides patent processing time and frequencies allowing me as the CEO to analyze where they succeed higher and I can use this data to further implement changes within my company.
+```
+```{r}
+#You can see the inventor's country
+table(df$data.patents.patent_firstnamed_inventor_country)
+#This can be important data to compare where Adidas is different by country
+```
+
+```{r}
+### Aggregate the observations
+library(lubridate)
+library(zoo)
+library(dplyr)
+#### Count of Patents by Date Granted
+
+# Convert patent_date to Date object
+df$data.patents.patent_date <- as.Date(df$data.patents.patent_date)
+
+# Aggregate patent counts by month
+Count_by_month <- df %>%
+  mutate(month = floor_date(data.patents.patent_date, "month")) %>%
+  group_by(month) %>%
+  summarize(Count = n())
+
+# Format the month column to "YYYY-MM"
+Count_by_month$month <- format(Count_by_month$month, format = "%Y-%m")
+
+# Create a time series object
+ts_count <- ts(Count_by_month$Count, start = c(2021,1), frequency = 12)
+
+# Plot the time series
+plot(ts_count, xaxt = 'n', xlab="Month-Year", ylab = "Number of Patents Granted")
+
+# Custom x-axis labels
+change_label <- c("Jan-2021", "July-2021", "Jan-2022", "Jul-2022", "Jan-2023", "July-2023", "Jan-2024")
+axis(1, at = axTicks(1), labels = change_label, las = 1)
+```
+```{r}
+# Calculate filed_date (assuming patent_date is a date and patent_processing_time is in days)
+df$filed_date <- df$data.patents.patent_date - lubridate::days(df$data.patents.patent_processing_time)
+
+# Aggregate patent counts by month
+Count_by_month_File <- df %>%
+  mutate(month = lubridate::floor_date(filed_date, "month")) %>%
+  group_by(month) %>%
+  summarize(Count = n())
+
+# Format the month column as "YYYY-MM"
+Count_by_month_File$month <- format(Count_by_month_File$month, "%Y-%m")
+
+# Plot the counts as a line graph
+plot(Count_by_month_File$Count, xaxt = 'n', xlab = "Month-Year", ylab = "Number of Patents Filed", type = "l")
+
+# Add custom x-axis labels
+change_label_file <- c("Feb-2013", "June-2016", "Feb-2018", "Oct-2019", "Jun-2021", "Feb-2023")
+axis(1, at = seq(1, nrow(Count_by_month_File), length.out = 6), labels = change_label_file, las = 1)
+```
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(tidytext)
+
+# Clean the patent abstracts: convert to lowercase and remove punctuation
+df$data.patents.patent_abstract <- df$data.patents.patent_abstract %>%
+  tolower() %>% # Convert to lowercase using base R function
+  str_replace_all("[[:punct:]]", "") # Remove punctuation using stringr
+
+# Tokenize, count word frequencies, and remove stop words
+word_frequencies_abs <- df %>%
+  unnest_tokens(word, data.patents.patent_abstract) %>%
+  count(word, sort = TRUE) %>%
+  filter(!is.na(word)) %>%
+  anti_join(stop_words, by = "word")
+
+# Display the top 25 word frequencies
+head(word_frequencies_abs, 25)
+
+# Select specific rows for manual checking (removed duplicate 18, assuming it was a typo)
+manual_check_wf_abs <- word_frequencies_abs[c(1,5,6,7,8,9,11,18,25), ]
+
+# Order by frequency (optional, as count() already sorts by n descending)
+manual_check_wf_abs <- manual_check_wf_abs[order(manual_check_wf_abs$n), ]
+
+# Create a barplot with corrected labels
+barplot(manual_check_wf_abs$n, names.arg = manual_check_wf_abs$word, 
+        xlab = "Words", ylab = "Frequency", col = "green")
+#outcome: a very neat bar chart that allows us to analyze the frequency of important words within the patent documentation. We here can analyze that NIKE is making a lot of footwear advancements. Same with "upper" which can go with different clothing items or parts of the shoe and so on. What would take us days, text mining can do in seconds.
+```
+```{r}
+#Text Mining libraries
+library(dplyr)
+library(tidytext)
+library(stringr)
+
+#Title
+df$data.patents.patent_title <- df$data.patents.patent_title %>%
+  str_to_lower() %>% #Convert String to lowercase
+  str_replace_all("[[:Punct:]]", "") #Remove Punctuation
+word_frequencies_title <- df %>%
+  unnest_tokens(word, data.patents.patent_title) %>%
+  count(word,sort = TRUE) %>%
+  filter(!is.na(word)) %>%
+  anti_join(stop_words, by = "word")
+head(word_frequencies_title, 25)
+
+matches <- grepl("article", df$data.patents.patent_title, ignore.case = TRUE)
+head(df[matches, "data.patents.patent_title"])
+
+#As the CEO, this code enables us to efficiently analyze patent titles by converting them to lowercase and other filters, while filtering out common stop words. It also identifies patents containing the term "article," revealing key innovations like footwear components and sole structures. This text mining approach helps us quickly uncover trends and focus areas in our intellectual property portfolio, driving strategic R&D decisions and maintaining our competitive edge in product innovation.
+```
+```{r}
+# Total number of patents per year
+patents_per_year <- df %>%
+  group_by(Year = data.patents.patent_year) %>%
+  summarise(Count = n())
+
+# Plot
+ggplot(patents_per_year, aes(x = Year, y = Count)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "darkblue") +
+  labs(title = "Total Patents Granted Per Year",
+       x = "Year",
+       y = "Number of Patents") +
+  theme_minimal()
+# This is beneficial to see the linear advancement per year in the amount of patents NIKE is submitting. We can use this data to compare and make changes upon how many we are submitting.
+```
+```{r}
+# Group by year and calculate average citations
+citation_trends <- df %>%
+  group_by(Year = data.patents.patent_year) %>%
+  summarise(
+    avg_foreign = mean(data.patents.patent_num_foreign_citations, na.rm = TRUE),
+    avg_us = mean(data.patents.patent_num_us_patent_citations, na.rm = TRUE)
+  )
+
+# Plot both trends
+ggplot(citation_trends, aes(x = Year)) +
+  geom_line(aes(y = avg_foreign, color = "Foreign Citations"), size = 1.2) +
+  geom_line(aes(y = avg_us, color = "US Citations"), size = 1.2) +
+  labs(title = "Average Patent Citations by Type Over Time",
+       x = "Year",
+       y = "Average Citations",
+       color = "Citation Type") +
+  theme_minimal()
+#This is a really cool way of comparing Foreign to US Patent Citations. Basically lets us see more differences in NIKE citations.
+```
+```{r}
+# Count of patents by inventor country
+top_countries <- df %>%
+  count(Country = data.patents.patent_firstnamed_inventor_country, sort = TRUE) %>%
+  top_n(10)
+
+# Plot
+ggplot(top_countries, aes(x = reorder(Country, n), y = n)) +
+  geom_col(fill = "darkgreen") +
+  coord_flip() +
+  labs(title = "Top 10 Inventor Countries",
+       x = "Country",
+       y = "Number of Patents") +
+  theme_minimal()
+# Gives us a bar plot view of the 10 top countries in which are inventing for NIKE
+```
+
+
+
+
